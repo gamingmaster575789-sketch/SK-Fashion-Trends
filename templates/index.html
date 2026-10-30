@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}SK Fashion Trends | Everyday Style{% endblock %}
+{% block content %}
+<div class="shell">
+<section class="hero">
+  <div class="hero-copy">
+    <div class="eyebrow">SK Fashion Trends · 2026 Edit</div>
+    <h1>Wear what feels like you.</h1>
+    <p>Clean essentials, easy layers and everyday accessories curated for a modern wardrobe.</p>
+    <a class="btn btn-dark" href="#shop">Shop the collection <i class="bi bi-arrow-right"></i></a>
+  </div>
+</section>
+<div class="section-head" id="shop">
+  <div><div class="eyebrow">Fresh picks</div><h2>Our collection</h2></div>
+  <span class="muted">{{ products|length }} styles</span>
+</div>
+{% if products %}
+<div class="product-grid">
+{% for p in products %}
+<article class="product-card">
+  <a href="{{ url_for('product_detail', product_id=p['id']) }}"><img class="product-image" src="{{ p['image'] }}" alt="{{ p['name'] }}" loading="lazy"></a>
+  <div class="product-body">
+    <div class="product-name">{{ p['name'] }}</div>
+    <div class="product-meta"><span class="price">₹{{ "%.0f"|format(p['price']) }}</span><a class="view-link" href="{{ url_for('product_detail', product_id=p['id']) }}">View <i class="bi bi-arrow-up-right"></i></a></div>
+  </div>
+</article>
+{% endfor %}
+</div>
+{% else %}<div class="empty">No products found. Try another search.</div>{% endif %}
+</div>
+{% endblock %}

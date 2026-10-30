@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% block title %}{{ product['name'] }} | SK Fashion Trends{% endblock %}{% block content %}
+<div class="shell">
+<div class="detail">
+  <img class="detail-image" src="{{ product['image'] }}" alt="{{ product['name'] }}">
+  <div>
+    <div class="eyebrow">SK collection</div><h1>{{ product['name'] }}</h1><div class="detail-price">₹{{ "%.0f"|format(product['price']) }}</div>
+    <p class="detail-description">{{ product['description'] }}</p>
+    <p class="muted">{{ product['stock'] }} pieces available</p>
+    {% if session.user_id and session.role != 'admin' %}
+    <form method="POST" action="{{ url_for('add_to_cart', product_id=product['id']) }}" style="display:flex;gap:10px;margin-top:24px"><input class="quantity" type="number" name="quantity" value="1" min="1" max="{{ product['stock'] }}"><button class="btn btn-dark">Add to bag <i class="bi bi-bag-plus"></i></button></form>
+    {% elif not session.user_id %}<a class="btn btn-dark" href="{{ url_for('login') }}">Login to purchase</a>{% endif %}
+  </div>
+</div>
+<div class="reviews"><div class="section-head"><h2>Customer reviews</h2></div>
+{% for r in reviews %}<div class="review"><strong>{{ r['name'] }}</strong> <span class="pill">{{ r['rating'] }}/5</span><p class="muted">{{ r['comment'] }}</p></div>{% else %}<p class="muted">No reviews yet.</p>{% endfor %}
+{% if session.user_id and session.role != 'admin' %}<div class="form-card" style="margin:25px 0"><h3>Leave a review</h3><form method="POST" action="{{ url_for('add_feedback', product_id=product['id']) }}"><div class="field"><select name="rating"><option value="5">5 — Excellent</option><option value="4">4 — Good</option><option value="3">3 — Average</option><option value="2">2 — Poor</option><option value="1">1 — Bad</option></select></div><div class="field"><textarea name="comment" rows="4" placeholder="Tell us what you think" required></textarea></div><button class="btn btn-dark">Submit review</button></form></div>{% endif %}
+</div></div>{% endblock %}

@@ -19,9 +19,28 @@ def init_db():
             name TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
-            role TEXT NOT NULL DEFAULT 'customer'
+            role TEXT NOT NULL DEFAULT 'customer',
+            phone TEXT DEFAULT '',
+            address TEXT DEFAULT '',
+            city TEXT DEFAULT '',
+            state TEXT DEFAULT '',
+            pincode TEXT DEFAULT '',
+            gender TEXT DEFAULT ''
         )
     """)
+
+    # Keep existing databases compatible with the expanded profile.
+    user_columns = {row[1] for row in cur.execute("PRAGMA table_info(users)").fetchall()}
+    for column, definition in {
+        "phone": "TEXT DEFAULT ''",
+        "address": "TEXT DEFAULT ''",
+        "city": "TEXT DEFAULT ''",
+        "state": "TEXT DEFAULT ''",
+        "pincode": "TEXT DEFAULT ''",
+        "gender": "TEXT DEFAULT ''",
+    }.items():
+        if column not in user_columns:
+            cur.execute(f"ALTER TABLE users ADD COLUMN {column} {definition}")
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS categories (
@@ -160,6 +179,56 @@ def init_db():
             all_products,
         )
         conn.commit()
+
+    # Refresh the catalog imagery on every startup using free-to-use Pexels photos.
+    refreshed_images = {
+        "Men Casual Shirt": 13016206,
+        "Men Formal Shirt": 27308645,
+        "Denim Jacket": 27308645,
+        "Men Polo T-Shirt": 9759713,
+        "Men Hoodie": 11872747,
+        "Men Blazer": 12911511,
+        "Cargo Pants": 37897864,
+        "Men Jeans": 19895835,
+        "Men Sweater": 34150926,
+        "Men Track Suit": 32527429,
+        "Women Kurti": 36311379,
+        "Women Saree": 7920188,
+        "Women Dress": 38374231,
+        "Women Top": 30809730,
+        "Palazzo Pants": 14027977,
+        "Women Leggings": 13178920,
+        "Women Skirt": 36567501,
+        "Women Blouse": 28213774,
+        "Ethnic Suit Set": 35521738,
+        "Women Jumpsuit": 14027903,
+        "Running Shoes": 1027130,
+        "Casual Sneakers": 31078822,
+        "Formal Shoes": 12210270,
+        "Women Sandals": 23692992,
+        "Men Loafers": 17695225,
+        "Flip Flops": 4996974,
+        "Ankle Boots": 27658707,
+        "Women Heels": 27063075,
+        "Sports Shoes": 2529148,
+        "Home Slippers": 31451024,
+        "Leather Wallet": 27467366,
+        "Women Handbag": 39873977,
+        "Sunglasses": 19513294,
+        "Analog Watch": 13155693,
+        "Leather Belt": 7679471,
+        "Baseball Cap": 32477146,
+        "Winter Scarf": 2986445,
+        "Fashion Necklace": 29486063,
+        "Earrings Set": 38180246,
+        "Travel Backpack": 9595291,
+    }
+    for product_name, photo_id in refreshed_images.items():
+        cur.execute(
+            "UPDATE products SET image = ? WHERE name = ?",
+            (f"https://images.pexels.com/photos/{photo_id}/pexels-photo-{photo_id}.jpeg?auto=compress&cs=tinysrgb&w=900", product_name),
+        )
+    conn.commit()
 
     cur.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
     if cur.fetchone()[0] == 0:

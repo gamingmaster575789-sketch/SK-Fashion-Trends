@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% block title %}Login | SK Fashion Trends{% endblock %}{% block content %}
+<div class="shell"><div class="form-card"><div class="eyebrow">Welcome back</div><h1>Sign in</h1>
+<form method="POST"><div class="field"><label>Email</label><input type="email" name="email" required></div><div class="field"><label>Password</label><input type="password" name="password" required></div><button class="btn btn-dark">Login</button></form>
+<div class="link-row">New here? <a href="{{ url_for('register') }}">Create an account</a></div></div></div>{% endblock %}

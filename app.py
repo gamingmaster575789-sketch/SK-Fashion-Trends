@@ -1,10 +1,26 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
+from werkzeug.utils import secure_filename
+from pathlib import Path
 from database import get_db, init_db
 
 app = Flask(__name__)
 app.secret_key = "skfashion_secret_key"
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
+UPLOAD_DIR = Path(app.root_path) / "static" / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "gif"}
+
+def save_product_image(file):
+    if not file or not file.filename:
+        return None
+    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+    if ext not in ALLOWED_EXTENSIONS:
+        return None
+    filename = secure_filename(f"product_{datetime.now().strftime("%Y%m%d%H%M%S%f")}.{ext}")
+    file.save(UPLOAD_DIR / filename)
+    return url_for("static", filename=f"uploads/{filename}")
 
 init_db()
 
@@ -21,8 +37,12 @@ def is_admin():
 def inject_nav_categories():
     db = get_db()
     categories = db.execute("SELECT * FROM categories").fetchall()
+    cart_count = 0
+    if session.get("user_id") and session.get("role") != "admin":
+        row = db.execute("SELECT COALESCE(SUM(quantity), 0) FROM cart WHERE user_id = ?", (session["user_id"],)).fetchone()
+        cart_count = row[0] if row else 0
     db.close()
-    return dict(nav_categories=categories)
+    return dict(nav_categories=categories, cart_count=cart_count)
 
 
 @app.route("/")
@@ -112,11 +132,33 @@ def logout():
     return redirect(url_for("index"))
 
 
-@app.route("/profile")
+@app.route("/profile", methods=["GET", "POST"])
 def profile():
     if not is_logged_in():
         return redirect(url_for("login"))
+
     db = get_db()
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        phone = request.form.get("phone", "").strip()
+        address = request.form.get("address", "").strip()
+        city = request.form.get("city", "").strip()
+        state = request.form.get("state", "").strip()
+        pincode = request.form.get("pincode", "").strip()
+        gender = request.form.get("gender", "").strip()
+
+        if not name:
+            flash("Name cannot be empty.")
+        else:
+            db.execute(
+                """UPDATE users SET name = ?, phone = ?, address = ?, city = ?,
+                   state = ?, pincode = ?, gender = ? WHERE id = ?""",
+                (name, phone, address, city, state, pincode, gender, session["user_id"]),
+            )
+            db.commit()
+            session["name"] = name
+            flash("Profile updated successfully.")
+
     user = db.execute("SELECT * FROM users WHERE id = ?", (session["user_id"],)).fetchone()
     db.close()
     return render_template("profile.html", user=user)
@@ -316,7 +358,9 @@ def admin_add_product():
         price = request.form["price"]
         description = request.form["description"]
         stock = request.form["stock"]
-        image = request.form.get("image") or "https://images.pexels.com/photos/19852754/pexels-photo-19852754.jpeg?auto=compress&cs=tinysrgb&w=600"
+        image = request.form.get("image", "").strip()
+        uploaded_image = save_product_image(request.files.get("image_file"))
+        image = uploaded_image or image or "https://images.pexels.com/photos/19852754/pexels-photo-19852754.jpeg?auto=compress&cs=tinysrgb&w=600"
 
         db.execute(
             "INSERT INTO products (name, category_id, price, description, image, stock) VALUES (?, ?, ?, ?, ?, ?)",
@@ -343,11 +387,21 @@ def admin_edit_product(product_id):
         price = request.form["price"]
         stock = request.form["stock"]
         description = request.form["description"]
+        image = request.form.get("image", "").strip()
+        uploaded_image = save_product_image(request.files.get("image_file"))
 
-        db.execute(
-            "UPDATE products SET name = ?, price = ?, stock = ?, description = ? WHERE id = ?",
-            (name, price, stock, description, product_id),
-        )
+        if uploaded_image:
+            image = uploaded_image
+        if image:
+            db.execute(
+                "UPDATE products SET name = ?, price = ?, stock = ?, description = ?, image = ? WHERE id = ?",
+                (name, price, stock, description, image, product_id),
+            )
+        else:
+            db.execute(
+                "UPDATE products SET name = ?, price = ?, stock = ?, description = ? WHERE id = ?",
+                (name, price, stock, description, product_id),
+            )
         db.commit()
         db.close()
         flash("Product updated successfully.")
